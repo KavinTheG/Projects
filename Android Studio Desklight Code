@@ -1,0 +1,169 @@
+package com.example.desklight;
+
+import androidx.appcompat.app.AppCompatActivity;
+import io.particle.android.sdk.cloud.ParticleCloud;
+import io.particle.android.sdk.cloud.ParticleCloudSDK;
+import io.particle.android.sdk.cloud.ParticleDevice;
+import io.particle.android.sdk.cloud.exceptions.ParticleCloudException;
+import io.particle.android.sdk.devicesetup.ParticleDeviceSetupLibrary;
+import io.particle.android.sdk.utils.Toaster;
+
+import android.annotation.SuppressLint;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.CompoundButton;
+import android.widget.TextView;
+import android.widget.ToggleButton;
+
+import com.skydoves.colorpickerview.ColorEnvelope;
+import com.skydoves.colorpickerview.ColorPickerView;
+import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+
+public class MainActivity extends AppCompatActivity {
+    TextView textView;
+    private ParticleDevice bob;
+    int rgb[];
+    String data = "";
+    ParticleCloud myCloud;
+    private  static String TAG = "MainActivity";
+
+    boolean on = true;
+    ToggleButton toggleButton;
+
+    @SuppressLint("StaticFieldLeak")
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        ColorPickerView colorPickerView = findViewById(R.id.colorPickerView);
+        textView = findViewById(R.id.textView);
+        toggleButton = findViewById(R.id.toggleButton);
+
+        ParticleCloudSDK.init(this);
+        //ParticleDeviceSetupLibrary.startDeviceSetup(MainActivity.this, MainActivity.class);
+        ParticleDeviceSetupLibrary.initWithSetupOnly(this.getApplicationContext());
+        myCloud = ParticleCloudSDK.getCloud();
+
+         new  AsyncTask<Void, Void, String>() {
+            protected String doInBackground(Void... params) {
+                try {
+                    // Log in to Particle Cloud using username and password
+                    myCloud.logIn("email", "password"); //login info
+                    return "Logged in!";
+                }
+                catch(ParticleCloudException e) {
+                    Log.e(TAG, "Error logging in: " + e.toString());
+                    return "Error logging in!";
+                }
+            }
+
+            protected void onPostExecute(String msg) {
+                // Show Toast containing message from doInBackground
+                Toaster.s(MainActivity.this, msg);
+            }
+        }.execute();
+
+        new AsyncTask<Void, Void, String>() {
+            protected String doInBackground(Void... params) {
+                try {
+                    bob = myCloud.getDevice("390041001051363036373538");
+                    return "Device(bob) is acquired";
+                }
+                catch(ParticleCloudException e) {
+                    Log.e(TAG, "Failed to acquire bob: " + e.toString());
+                    return "Failed to acquire";
+                }
+            }
+
+            protected void onPostExecute(String msg) {
+                // Show Toast containing message from doInBackground
+                Toaster.s(MainActivity.this, msg);
+            }
+        }.execute();
+
+        colorPickerView.setColorListener((ColorEnvelopeListener) (envelope, fromUser) -> {
+            rgb = envelope.getArgb();
+            data = rgb[1] + "#" + rgb[2] + "#" + rgb[3];
+            //red = String.valueOf(rgb[1]);
+            //green = String.valueOf(rgb[2]);
+            //blue = String.valueOf(rgb[3]);
+            textView.setText("Red:" + rgb[1] + " Blue:" + rgb[2] + " Green:" + rgb[3]);
+            new AsyncTask<Void, Void, Void>() {
+                protected Void doInBackground(Void... params) {
+                    try {
+                        int result = bob.callFunction("colourReceiver", Collections.singletonList(data));
+
+                        // Toaster.s(MainActivity.this, "Info is sent: " + String.valueOf(result));
+                        //return "";
+                    }
+                    catch(ParticleCloudException e) {
+                        Log.e(TAG, "Failed to acquire bob: " + e.toString());
+                        // Toaster.s(MainActivity.this, "Info is sent");
+                        //return "Failed to send ";
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        // Toaster.s(MainActivity.this, "Info is sent");
+                        //return "Failed to send ";
+                    } catch (ParticleDevice.FunctionDoesNotExistException e) {
+                        e.printStackTrace();
+                        // Toaster.s(MainActivity.this, "Info is sent");
+                        //return "Failed to send info";
+                    }
+                    return null;
+                }
+
+                protected void onPostExecute(String msg) {
+                    // Show Toast containing message from doInBackground
+                    Toaster.s(MainActivity.this, msg);
+                }
+            }.execute();
+        });
+
+
+        toggleButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            new AsyncTask<Void, Void, Void>() {
+                protected Void doInBackground(Void... params) {
+                    //  LOG IN TO PARTICLE
+                    try {
+                        if (isChecked) {
+                            Toaster.s(MainActivity.this, "LED is on!");
+                            bob.callFunction("toggleCom", Collections.singletonList("1"));
+                        } else {
+                            Toaster.s(MainActivity.this, "LED is off!");
+                            bob.callFunction("toggleCom", Collections.singletonList("0"));
+                        }
+
+                    } catch(ParticleCloudException e) {
+                        Log.e(TAG, "Failed to acquire bob: " + e.toString());
+                        // Toaster.s(MainActivity.this, "Info is sent");
+                      //  return "Failed to send ";
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        // Toaster.s(MainActivity.this, "Info is sent");
+                      //  return "Failed to send ";
+                    } catch (ParticleDevice.FunctionDoesNotExistException e) {
+                        e.printStackTrace();
+                        // Toaster.s(MainActivity.this, "Info is sent");
+                       // return "Failed to send info";
+                    }
+                    return null;
+                }
+
+                protected void onPostExecute(String msg) {
+                    // Show Toast containing message from doInBackground
+                    Toaster.s(MainActivity.this, msg);
+                }
+            }.execute();
+        });
+    }
+
+
+
+}
