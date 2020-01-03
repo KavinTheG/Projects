@@ -1,0 +1,153 @@
+//Kavin's Drone Code
+#include <Wire.h>
+#include <Servo.h>
+
+//----Brushless motors & Esc----//
+Servo motor, motor2, motor3, motor4;// esc motors
+
+//----------------Acceleromoter----------------//
+int16_t Raw_AccX, Raw_AccY, Raw_AccZ, Raw_Tmp; //Raw values from acceleromoter
+float AccX, AccY, AccZ; //filtered acceleromoter value
+float roll, pitch; //tilt of drone
+float CurrentTime, dt, PrevTime; //time values
+
+//----------------Gyroscope----------------//
+long Raw_GyroX, Raw_GyroY, Raw_GyroZ; //raw gyro values
+float GyroX, GyroY; //filtered gyro values
+
+//----Filter----//
+float alpha = 0.98; //complementary filter
+//0.5 is temporary.
+
+//----PID----//
+const float proportion = 1; // pid constants
+const float integrated = 0.5;
+const float derivitive = 0.5;
+float px, py, ix, iy, dx, dy, pid_x, pid_y; // pid variables
+
+//----Variables----//
+float prevDevX, prevDevY, deviationX, deviationY;
+float AngleX, AngleY;
+float IdealAngleX = 0, IdealAngleY = 0;
+const float toDegree = 100 / M_PI;
+const int MPU_addr = 0x68; // I2C address of the MPU-6050
+
+//RC
+float ch1,  ch2,  ch3,  ch4;//store our rc values
+float minRange = 900, maxRange = 1400 ;
+const int pinCh1 = 3,   pinCh2 = 4,  pinCh3 = 5,  pinCh4 = 6;
+
+int hoverThrottle = 13200 / 10.6;
+int correctionThrottle, correctionThrottle2, correctionThrottle3, correctionThrottle4;
+void setup()  {//-----------------------------------------------
+    // put your setup code here, to run once:
+    Wire.begin();
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x6B);  // PWR_MGMT_1 register
+    Wire.write(0);     // set to zero (wakes up the MPU-6050)
+    Wire.endTransmission(true);
+    Serial.begin(9600);
+
+    pinMode(pinCh1, INPUT); // Set our input pins as such
+    pinMode(pinCh2, INPUT);
+    pinMode(pinCh3, INPUT);
+    pinMode(pinCh4, INPUT);
+
+    CurrentTime = millis();
+}//------------------------------------------------------------
+
+void loop()  {//------------------------------------------------
+    // put your main code here, to run repeatedly:
+    float previousRaw_GyroX;
+    float previousRaw_GyroY;
+    //Reading RC Values
+    ch1 = pulseIn(3, HIGH, 30000); //Side to Side, Right Throttle
+    ch2 = pulseIn(4, HIGH, 30000); //Up Down, Right Throttle
+    ch3 = pulseIn(5, HIGH, 30000);// Up Down, left throttle
+    ch4 = pulseIn(6, HIGH, 30000);// Side to Side, left throttle
+    int ch1Value = map(ch1, 1000, 1990, 0, 100);//Doesn't really matter
+    int ch2Value = map(ch2, 1000, 1990, 0, 100);//Throttle
+    IdealAngleY = map(ch3, 1000, 1990, -60, 60);//Forward Backward
+    IdealAngleX = map(ch4, 1000, 1990, -60, 60); //Left Right
+
+    prevDevX = deviationX;
+    prevDevY = deviationY;
+    PrevTime = CurrentTime;
+    CurrentTime = millis();
+    dt = (CurrentTime - PrevTime) / 1000;
+
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
+    Wire.endTransmission(false);
+    Wire.requestFrom(MPU_addr, 14, true); // request a total of 14 registers
+    Raw_AccX = Wire.read() << 8 | Wire.read(); // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)
+    Raw_AccY = Wire.read() << 8 | Wire.read(); // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
+    Raw_AccZ = Wire.read() << 8 | Wire.read(); // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
+    Raw_Tmp = Wire.read() << 8 | Wire.read(); // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
+    Raw_GyroX = Wire.read() << 8 | Wire.read(); // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
+    Raw_GyroY = Wire.read() << 8 | Wire.read(); // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
+    Raw_GyroZ = Wire.read() << 8 | Wire.read(); // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+
+    AccX =  (Raw_AccX) / 16384.0;
+    AccY = (Raw_AccY) / 16384.0;
+    AccZ = (Raw_AccZ) / 16384.0;
+    //calculating tilt
+    roll = atan2(AccX, sqrt(sq(AccY) + sq(AccZ))) * toDegree;
+    pitch = atan2( AccY , sqrt(sq(AccX) + sq(AccZ))) * toDegree;
+    //getting gyro value
+    GyroX = Raw_GyroX / 131;
+    GyroY = Raw_GyroY / 131;
+
+
+    //adding initial angle and movement
+    //complementary filter
+    //alpha = (tau)/(tau+dt)
+    //tau = (alpha * dt) / (1 - alpha)
+    AngleX = alpha  * (AngleX + GyroX * dt) +  (1 - alpha)  * roll;
+    AngleY = alpha  * (AngleY + GyroY * dt) +  (1 - alpha)  * pitch;
+
+    //drone should be at ideal angle
+    //ideal angle will be controlled by rc transmitter
+    //maps rc value to drone angle
+
+
+    float deviationX = IdealAngleX - AngleX;
+    float deviationY = IdealAngleY - AngleY;
+
+    /*  //These serial prints are to see if its working
+        Serial.print("Angle X: ");
+        Serial.print(AngleX);
+        Serial.print(" || AngleY: ");
+        Serial.print(AngleY);
+        Serial.println("");
+        delay(500);
+    */
+
+    //----PID----//
+
+    //Proportion Constant//
+    px = deviationX * proportion;
+    py = deviationY * proportion;
+
+    //Integrated Constant//
+    if (deviationX >= -3 && deviationX <= 3) {
+        ix += (deviationX * integrated);
+        iy += (deviationY * integrated);
+    }
+
+    //Derivitive Constant//
+    dx = deviationX * ((deviationX - prevDevX) / dt);
+    dy = deviationY * ((deviationY - prevDevY) / dt);
+    pid_x = px + ix + dx;
+    pid_y = py + iy + dy;
+    if (pid_x < 1000 ) {
+        pid_x = 100;
+    } else if (pid_x > 1700) {
+        pid_x = 2000;
+    }
+    //Need to Implement to Drone Motor
+
+}//------------------------------------------------------
+
+
+
