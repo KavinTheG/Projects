@@ -1,0 +1,140 @@
+char junk;
+String inputString="";
+int enA = 2;
+int in1 = 3;
+int in2 = 4;
+// motor two
+int enB = 7;
+int in3 = 5;
+int in4 = 6;
+int trigPin=9;
+int echoPin=10;
+int gndPin=11;
+int plusPin=8;
+
+int lastDistance=0;
+byte speedA=150;
+byte speedB=255;
+
+
+void setup ()  {
+ Serial.begin(9600);            // set the baud rate to 9600, same should be of your Serial Monitor
+  pinMode(enA, OUTPUT);
+  pinMode(enB, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(trigPin,OUTPUT);
+pinMode(echoPin,INPUT);
+pinMode(gndPin,OUTPUT);
+digitalWrite(gndPin,OUTPUT);
+pinMode(plusPin,OUTPUT);
+digitalWrite(plusPin,HIGH);
+}
+
+
+
+
+
+void loop(){
+  if(Serial.available()) {
+     // Serial.println("Hello");
+    // Serial.println("Hi");
+  while(Serial.available())
+    
+    {
+      char inChar = (char)Serial.read(); //read the input
+      inputString += inChar;        //make a string of the characters coming on serial
+    }
+    Serial.println(inputString);
+    while (Serial.available() > 0){  
+    junk = Serial.read() ; }      // clear the serial buffer       //in case of 'a' turn the LED on
+    
+   
+     if(inputString == "f"){   //incase of 'b' turn the LED off
+      forward();
+      }else if(inputString == "b"){
+      backward();
+     }else if(inputString=="l"){
+      left();
+     }else if(inputString=="r"){
+      right();
+     }else if(inputString=="s"){
+      stopCar();
+     }
+     
+    inputString = "";
+    //Serial.println(takeSounding_cm());
+    //delay(500);
+  }        
+
+}
+void forward(){
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);  
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  analogWrite(enA, speedA); 
+
+  analogWrite(enB, speedA); 
+}
+
+void backward() {
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  analogWrite(enB, speedA); 
+  analogWrite(enA, speedA); 
+ 
+}
+void stopCar() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);  
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+  analogWrite(enB, 0); 
+  analogWrite(enA, 0);
+}
+void left(){
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);  
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  analogWrite(enB, speedA); 
+  analogWrite(enA, 0);
+}
+void right(){
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);  
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+  analogWrite(enB, 0); 
+  analogWrite(enA, speedA);
+}
+int takeSounding_cm(){
+  digitalWrite(trigPin,LOW);
+  delayMicroseconds(2);
+   digitalWrite(trigPin,HIGH);
+   delayMicroseconds(10);
+   digitalWrite(trigPin,LOW);
+   delayMicroseconds(2);
+   int duration = pulseIn(echoPin, HIGH);
+   int distance=duration / 29 /2;
+   if(distance>500){
+    return lastDistance;
+   } 
+   else{
+    lastDistance=distance;
+    return distance;
+   }
+    
+}
+
+int takeSounding_in(){
+  return takeSounding_cm()*2/5;
+}
+
+
+// dis
