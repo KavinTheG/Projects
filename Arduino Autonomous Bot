@@ -1,0 +1,112 @@
+int AIA=3;
+int AIB=4;
+int BIA=5;
+int BIB=6;
+int trigPin=9;
+int echoPin=10;
+int gndPin=11;
+int plusPin=8;
+
+int lastDistance=0;
+const int pResistor = A0; 
+const int pResistor1 = A1;
+int value;      
+int value1;  
+byte speedA=125;
+byte speedB=100;
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+pinMode(AIA,OUTPUT);
+pinMode(BIA,OUTPUT);
+pinMode(BIA,OUTPUT);
+pinMode(BIB,OUTPUT);
+pinMode(pResistor, INPUT);
+pinMode(pResistor1, INPUT);
+pinMode(trigPin,OUTPUT);
+pinMode(echoPin,INPUT);
+pinMode(gndPin,OUTPUT);
+digitalWrite(gndPin,OUTPUT);
+pinMode(plusPin,OUTPUT);
+digitalWrite(plusPin,HIGH);
+
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  Serial.println(takeSounding_in());
+delay(100);
+  value = analogRead(pResistor);
+  //Serial.println(value);
+  //delay(100);
+
+ value1 = analogRead(pResistor1);
+  //Serial.println(value1);
+  //delay(100);
+if(takeSounding_cm()>5){
+  forward();
+}
+else if(takeSounding_cm()<5){
+if(value<200 && value1>200){
+    right();
+  }
+else if(value>200 && value1<200){
+    left();
+  }
+else if(value<200 && value1<200){
+    backward(); 
+  }
+ 
+}
+
+
+  
+}
+
+void forward(){
+  digitalWrite(AIA,speedA);
+  digitalWrite(AIB,LOW);
+  digitalWrite(BIA,speedB);
+  digitalWrite(BIB,LOW);
+}
+void backward(){
+  digitalWrite(AIA,LOW);
+  digitalWrite(AIB,speedA);
+  digitalWrite(BIA,LOW);
+  digitalWrite(BIB,speedB);
+}
+void left(){
+  digitalWrite(AIA,speedA);
+  digitalWrite(AIB,LOW);
+  digitalWrite(BIA,LOW);
+  digitalWrite(BIB,LOW);
+}
+void right(){
+  digitalWrite(AIA,LOW);
+  digitalWrite(AIB,LOW);
+  digitalWrite(BIA,LOW);
+  digitalWrite(BIB,speedB);
+}
+int takeSounding_cm(){
+  digitalWrite(trigPin,LOW);
+  delayMicroseconds(2);
+   digitalWrite(trigPin,HIGH);
+   delayMicroseconds(10);
+   digitalWrite(trigPin,LOW);
+   delayMicroseconds(2);
+   int duration = pulseIn(echoPin, HIGH);
+   int distance=duration / 29 /2;
+   if(distance>500){
+    return lastDistance;
+   } 
+   else{
+    lastDistance=distance;
+    return distance;
+   }
+   
+}
+
+int takeSounding_in(){
+  return takeSounding_cm()*2/5;
+}
